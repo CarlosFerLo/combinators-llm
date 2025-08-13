@@ -14,11 +14,6 @@ vocab = {
     ")": 7
 }
 
-
-
-    
-
-
 if __name__ == "__main__" :
     tokenizer = Tokenizer(WordLevel(vocab=vocab, unk_token="[UNK]"))
     tokenizer.pre_tokenizer = Sequence([
@@ -27,4 +22,4 @@ if __name__ == "__main__" :
         ])
     
     
-    tokenizer.save("combinators_llm/tokenizers/term.json")
+    tokenizer.save("combinators_llm/tokenizers/term-tokenizer.json")
