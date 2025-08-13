@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "truncation": null,
+  "padding": null,
+  "added_tokens": [],
+  "normalizer": null,
+  "pre_tokenizer": {
+    "type": "Sequence",
+    "pretokenizers": [
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "\\s"
+        },
+        "behavior": "Removed",
+        "invert": false
+      },
+      {
+        "type": "Split",
+        "pattern": {
+          "String": ""
+        },
+        "behavior": "Removed",
+        "invert": false
+      }
+    ]
+  },
+  "post_processor": null,
+  "decoder": null,
+  "model": {
+    "type": "WordLevel",
+    "vocab": {
+      "[UNK]": 0,
+      "[PAD]": 1,
+      "[SOS]": 2,
+      "[EOS]": 3,
+      "S": 4,
+      "K": 5,
+      "(": 6,
+      ")": 7
+    },
+    "unk_token": "[UNK]"
+  }
+}
