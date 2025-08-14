@@ -80,4 +80,4 @@ def get_ds (config) :
     val_dataloader = DataLoader(val, batch_size=config["val_batch_size"], shuffle=True)
     test_dataloader = DataLoader(test, batch_size=config["test_batch_size"], shuffle=True)
     
-    
+    return train_dataloader, val_dataloader, test_dataloader

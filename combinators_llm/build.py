@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from modules import *
+from combinators_llm.modules import *
 
 def build_transformer (
     src_vocab_size: int, tgt_vocab_size: int,
