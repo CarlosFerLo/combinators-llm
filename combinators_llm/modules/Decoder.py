@@ -1,5 +1,5 @@
 import torch.nn as nn
-from LayerNormalization import LayerNormalization
+from combinators_llm.modules.LayerNormalization import LayerNormalization
 
 class Decoder (nn.Module) :
     

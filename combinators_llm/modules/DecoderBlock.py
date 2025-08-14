@@ -1,7 +1,7 @@
 import torch.nn as nn
-from MultiHeadAttentionBlock import MultiHeadAttentionBlock
-from FeedForwardBlock import FeedForwardBlock
-from ResidualConnection import ResidualConnection
+from combinators_llm.modules.MultiHeadAttentionBlock import MultiHeadAttentionBlock
+from combinators_llm.modules.FeedForwardBlock import FeedForwardBlock
+from combinators_llm.modules.ResidualConnection import ResidualConnection
 
 class DecoderBlock (nn.Module) :
     

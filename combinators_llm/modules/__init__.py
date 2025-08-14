@@ -1,15 +1,15 @@
-from InputEmbedding import InputEmbedding
-from PositionalEncoding import PositionalEncoding
-from LayerNormalization import LayerNormalization
-from FeedForwardBlock import FeedForwardBlock
-from MultiHeadAttentionBlock import MultiHeadAttentionBlock
-from ResidualConnection import ResidualConnection
-from EncoderBlock import EncoderBlock
-from Encoder import Encoder
-from DecoderBlock import DecoderBlock
-from Decoder import Decoder
-from ProjectionLayer import ProjectionLayer
-from Transformer import Transformer
+from combinators_llm.modules.InputEmbedding import InputEmbedding
+from combinators_llm.modules.PositionalEncoding import PositionalEncoding
+from combinators_llm.modules.LayerNormalization import LayerNormalization
+from combinators_llm.modules.FeedForwardBlock import FeedForwardBlock
+from combinators_llm.modules.MultiHeadAttentionBlock import MultiHeadAttentionBlock
+from combinators_llm.modules.ResidualConnection import ResidualConnection
+from combinators_llm.modules.EncoderBlock import EncoderBlock
+from combinators_llm.modules.Encoder import Encoder
+from combinators_llm.modules.DecoderBlock import DecoderBlock
+from combinators_llm.modules.Decoder import Decoder
+from combinators_llm.modules.ProjectionLayer import ProjectionLayer
+from combinators_llm.modules.Transformer import Transformer
 
 __all__ = [
     "InputEmbedding",

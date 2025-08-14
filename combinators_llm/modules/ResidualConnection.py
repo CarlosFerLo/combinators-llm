@@ -1,6 +1,5 @@
-import torch
 import torch.nn as nn
-from LayerNormalization import LayerNormalization
+from combinators_llm.modules.LayerNormalization import LayerNormalization
 
 class ResidualConnection (nn.Module) :
     def __init__(self, dropout: float) -> None:
