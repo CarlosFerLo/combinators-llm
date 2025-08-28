@@ -13,9 +13,14 @@ class CombinatorsDataset (Dataset) :
         self.term_tokenizer = Tokenizer.from_file("combinators_llm/tokenizers/term-tokenizer.json")
         self.seq_len = seq_len
         
-        self.sos_token = torch.tensor([self.type_tokenizer.token_to_id("[SOS]")], dtype=torch.int64)
-        self.eos_token = torch.tensor([self.type_tokenizer.token_to_id("[EOS]")], dtype=torch.int64)
-        self.pad_token = torch.tensor([self.type_tokenizer.token_to_id("[PAD]")], dtype=torch.int64)
+        self.enc_sos_token = torch.tensor([self.type_tokenizer.token_to_id("[SOS]")], dtype=torch.int64)
+        self.enc_eos_token = torch.tensor([self.type_tokenizer.token_to_id("[EOS]")], dtype=torch.int64)
+        self.enc_pad_token = torch.tensor([self.type_tokenizer.token_to_id("[PAD]")], dtype=torch.int64)
+        
+        self.dec_sos_token = torch.tensor([self.term_tokenizer.token_to_id("[SOS]")], dtype=torch.int64)
+        self.dec_eos_token = torch.tensor([self.term_tokenizer.token_to_id("[EOS]")], dtype=torch.int64)
+        self.dec_pad_token = torch.tensor([self.term_tokenizer.token_to_id("[PAD]")], dtype=torch.int64)
+        
         
     def __len__ (self) :
         return len(self.ds) # type: ignore
@@ -35,22 +40,22 @@ class CombinatorsDataset (Dataset) :
             raise ValueError("Sentence is too long")
         
         encoder_input = torch.cat([
-            self.sos_token,
+            self.enc_sos_token,
             torch.tensor(enc_input_tokens, dtype=torch.int64),
-            self.eos_token,
-            torch.tensor([self.pad_token] * enc_num_padding_tokens, dtype=torch.int64)
+            self.enc_eos_token,
+            torch.tensor([self.enc_pad_token] * enc_num_padding_tokens, dtype=torch.int64)
         ])
         
         decoder_input = torch.cat([
-            self.sos_token,
+            self.dec_sos_token,
             torch.tensor(dec_input_tokens, dtype=torch.int64),
-            torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64)
+            torch.tensor([self.dec_pad_token] * dec_num_padding_tokens, dtype=torch.int64)
         ])
         
         label = torch.cat([
             torch.tensor(dec_input_tokens, dtype=torch.int64),
-            self.eos_token,
-            torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64)
+            self.dec_eos_token,
+            torch.tensor([self.dec_pad_token] * dec_num_padding_tokens, dtype=torch.int64)
         ])
         
         assert encoder_input.size(0) == self.seq_len
@@ -60,8 +65,8 @@ class CombinatorsDataset (Dataset) :
         return {
             "encoder_input": encoder_input, # (seq_len)
             "decoder_input": decoder_input, # (seq_len)
-            "encoder_mask": (encoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int(), # (1, 1, seq_len)
-            "decoder_mask": (decoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int() & causal_mask(decoder_input.size(0)), # (1, 1, seq_len) & (1, seq_len, seq_len)
+            "encoder_mask": (encoder_input != self.enc_pad_token).unsqueeze(0).unsqueeze(0).int(), # (1, 1, seq_len)
+            "decoder_mask": (decoder_input != self.dec_pad_token).unsqueeze(0).unsqueeze(0).int() & causal_mask(decoder_input.size(0)), # (1, 1, seq_len) & (1, seq_len, seq_len)
             "label": label,
             "type_text": type_text,
             "term_text": term_text
