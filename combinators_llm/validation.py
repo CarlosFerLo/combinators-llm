@@ -40,12 +40,12 @@ def run_validation(
             pairs: List[Tuple[str, str]] = []
 
             for i in range(encoder_input.size(0)):
-                type_text = batch["type_text"][i]
+                type_text: str = batch["type_text"][i]
 
                 term_text = tokenizer_tgt.decode(model_out[i])
-                term_text = term_text.replace("[SOS]", "").split("[EOS]")[0]
+                term_text: str = term_text.replace("[SOS]", "").split("[EOS]")[0]
 
-                pairs = (type_text, term_text)
+                pairs.append((type_text, term_text))
 
             total += len(batch)
             res = check_proof_batch(pairs)
