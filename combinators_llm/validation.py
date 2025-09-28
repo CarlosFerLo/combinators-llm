@@ -3,8 +3,10 @@ import torch
 import logging
 from tqdm import tqdm
 
+from typing import List, Tuple
+
 from .generators import greedy_decode_batch
-from .utils.lean import check_proof
+from .utils.lean import check_proof_batch
 
 
 def run_validation(
@@ -35,15 +37,19 @@ def run_validation(
             )
             model_out = model_out.detach().cpu().numpy()
 
+            pairs: List[Tuple[str, str]] = []
+
             for i in range(encoder_input.size(0)):
                 type_text = batch["type_text"][i]
 
                 term_text = tokenizer_tgt.decode(model_out[i])
                 term_text = term_text.replace("[SOS]", "").split("[EOS]")[0]
 
-                total += 1
-                if check_proof(type_text, term_text):
-                    count += 1
+                pairs = (type_text, term_text)
+
+            total += len(batch)
+            res = check_proof_batch(pairs)
+            count += sum(res)
 
             batch_iterator.set_postfix({"acc": f"{count / total :6.3f}"})
 
