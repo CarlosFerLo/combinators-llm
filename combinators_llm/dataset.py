@@ -27,6 +27,18 @@ class CombinatorsDataset(Dataset):
             lambda x: len(self.term_tokenizer.encode(x["term"]).ids) < seq_len - 1
         )
 
+        if split in ["test", "validation"]:
+
+            seen = set()
+
+            def filter_unique(example):
+                if example["type"] in seen:
+                    return False
+                seen.add(example["type"])
+                return True
+
+            dataset = dataset.filter(filter_unique)
+
         self.ds = dataset
 
         self.enc_sos_token = torch.tensor(
