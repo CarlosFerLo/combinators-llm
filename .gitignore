@@ -54,6 +54,14 @@ python_files/tests/*/.data/.coverage*
 python_files/tests/*/.data/*/.coverage*
 src/testTestingRootWkspc/coverageWorkspace/.coverage
 
-# Poetry 
-pyproject.toml
-poetry.lock
+# Env
+.env
+
+# Weights & Biases
+wandb
+
+# Weights
+weights
+
+# Logging
+*.log
