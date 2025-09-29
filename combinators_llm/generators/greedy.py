@@ -46,7 +46,9 @@ def greedy_decode(
     return decoder_input.squeeze(0)
 
 
-def greedy_decode_batch(model, source, source_mask, tokenizer_tgt, max_len, device):
+def greedy_decode_batch(
+    model, source, source_mask, tokenizer_src, tokenizer_tgt, max_len, device
+):
     batch_size = source.size(0)
     sos_idx = tokenizer_tgt.token_to_id("[SOS]")
     eos_idx = tokenizer_tgt.token_to_id("[EOS]")

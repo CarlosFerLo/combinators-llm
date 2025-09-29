@@ -33,7 +33,13 @@ def run_validation(
             encoder_mask = batch["encoder_mask"].to(device)
 
             model_out = greedy_decode_batch(
-                model, encoder_input, encoder_mask, tokenizer_tgt, max_len, device
+                model,
+                encoder_input,
+                encoder_mask,
+                tokenizer_src,
+                tokenizer_tgt,
+                max_len,
+                device,
             )
             model_out = model_out.detach().cpu().numpy()
 

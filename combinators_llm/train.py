@@ -14,8 +14,6 @@ import os
 
 load_dotenv()
 
-print("Hello from train.py")
-
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(threadName)s] %(levelname)s: %(message)s",
@@ -173,6 +171,11 @@ def train_model(config):
     )
 
     run.finish()
+
+    torch.save(
+        model.state_dict(),
+        "./combinators_llm/combinators-llm.bin",
+    )
 
 
 def main():
