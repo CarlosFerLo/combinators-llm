@@ -39,7 +39,7 @@ class CombinatorsDataset(Dataset):
 
             dataset = dataset.filter(filter_unique)
 
-        self.ds = dataset
+        self.ds = dataset.shuffle()
 
         self.enc_sos_token = torch.tensor(
             [self.type_tokenizer.token_to_id("[SOS]")], dtype=torch.int64
