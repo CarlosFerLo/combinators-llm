@@ -53,7 +53,7 @@ def run_validation(
 
                 pairs.append((type_text, term_text))
 
-            total += len(batch)
+            total += len(batch["type_text"])
             res = check_proof_batch(pairs)
             count += sum(res)
 
