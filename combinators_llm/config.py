@@ -6,7 +6,7 @@ def get_config():
         "train_batch_size": 16,
         "val_batch_size": 8,
         "test_batch_size": 8,
-        "num_epochs": 2,
+        "num_epochs": 1,
         "lr": 1e-5,
         "dropout": 0.1,
         "seq_len": 256,
