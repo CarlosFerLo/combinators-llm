@@ -54,6 +54,7 @@ python_files/tests/*/.data/.coverage*
 python_files/tests/*/.data/*/.coverage*
 src/testTestingRootWkspc/coverageWorkspace/.coverage
 
+.notebook
 # Env
 .env
 
