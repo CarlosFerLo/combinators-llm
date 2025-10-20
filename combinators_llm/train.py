@@ -102,9 +102,10 @@ def train_model(config):
 
     for epoch in range(initial_epoch, config["num_epochs"]):
         model.train()
-        optimizer.zero_grad()
         batch_iterator = tqdm(train_dataloader, desc=f"Processing epoch {epoch:02d}")
         for batch in batch_iterator:
+            optimizer.zero_grad()
+
             encoder_input = batch["encoder_input"].to(device)  # (batch, seq_len)
             decoder_input = batch["decoder_input"].to(device)  # (batch, seq_len)
             encoder_mask = batch["encoder_mask"].to(device)  # (batch, 1, 1, seq_len)
