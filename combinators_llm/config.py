@@ -4,8 +4,8 @@ from pathlib import Path
 def get_config():
     return {
         "train_batch_size": 32,
-        "val_batch_size": 8,
-        "test_batch_size": 8,
+        "val_batch_size": 32,
+        "test_batch_size": 32,
         "num_epochs": 50,
         "lr": 1e-4,
         "dropout": 0.1,
