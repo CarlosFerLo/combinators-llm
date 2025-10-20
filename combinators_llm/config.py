@@ -20,6 +20,7 @@ def get_config():
         "preload": None,
         "term_tokenizer_file": "term-tokenizer.json",
         "type_tokenizer_file": "type-tokenizer.json",
+        "val_accuracy_early_stop": 0.9,
     }
 
 
