@@ -7,7 +7,7 @@ def get_config():
         "val_batch_size": 8,
         "test_batch_size": 8,
         "num_epochs": 50,
-        "lr": 5e-4,
+        "lr": 1e-4,
         "warmup_steps": 500,
         "dropout": 0.1,
         "seq_len": 256,
