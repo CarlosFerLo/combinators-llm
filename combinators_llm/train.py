@@ -12,6 +12,7 @@ from .config import get_config, get_weights_file_path
 from .validation import run_validation
 from dotenv import load_dotenv
 import os
+import random
 
 load_dotenv()
 
@@ -149,6 +150,31 @@ def train_model(config):
         )
 
         logging.info("Running validation...")
+
+        # Take 10 random batches from train dataloader without loading all into memory
+        num_batches = len(train_dataloader)
+        num_samples = min(10, num_batches)
+        random_indices = set(random.sample(range(num_batches), num_samples))
+
+        train_sample_batches = []
+        for i, batch in enumerate(train_dataloader):
+            if i in random_indices:
+                train_sample_batches.append(batch)
+            if len(train_sample_batches) == num_samples:
+                break
+
+        run_validation(
+            "train",
+            model,
+            train_sample_batches,
+            src_tokenizer,
+            tgt_tokenizer,
+            config["seq_len"],
+            device,
+            global_step,
+            run,
+        )
+
         val_accuracy = run_validation(
             "validation",
             model,

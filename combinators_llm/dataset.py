@@ -41,6 +41,13 @@ class CombinatorsDataset(Dataset):
 
         self.ds = dataset.shuffle()
 
+        # DEBUG: Limit dataset to 100 rows for testing
+        try:
+            if len(self.ds) > 100:  # type: ignore
+                self.ds = self.ds.select(range(100))  # type: ignore
+        except (TypeError, AttributeError):
+            pass  # Skip if dataset doesn't support len or select
+
         self.enc_sos_token = torch.tensor(
             [self.type_tokenizer.token_to_id("[SOS]")], dtype=torch.int64
         )
