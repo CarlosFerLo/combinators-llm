@@ -68,15 +68,9 @@ def train_model(config):
         tgt_tokenizer.token_to_id("[PAD]"),
     ).to(device)
 
-    def lr_lambda(current_step):
-        if current_step < config["warmup_steps"]:
-            return float(current_step) / float(max(1, config["warmup_steps"]))
-        return 1.0
-
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=config["lr"], weight_decay=0.01
+        model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"]
     )
-    scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     initial_epoch = 0
     global_step = 0
@@ -88,7 +82,6 @@ def train_model(config):
         initial_epoch = state["epoch"] + 1
         model.load_state_dict(state["model_state_dict"])
         optimizer.load_state_dict(state["optimizer_state_dict"])
-        scheduler.load_state_dict(state["scheduler"])
         global_step = state["global_step"]
     else:
         logging.info("Initializing weights")
@@ -140,7 +133,6 @@ def train_model(config):
             loss.backward()
 
             optimizer.step()
-            scheduler.step()
 
             global_step += 1
 
@@ -151,7 +143,6 @@ def train_model(config):
                 "epoch": epoch,
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
-                "scheduler": scheduler.state_dict(),
                 "global_step": global_step,
             },
             model_filename,

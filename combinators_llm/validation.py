@@ -28,6 +28,7 @@ def run_validation(
 
     with torch.no_grad():
         batch_iterator = tqdm(validation_ds, desc=f"Running {val_name}")
+        print_batch = True
         for batch in batch_iterator:
             encoder_input = batch["encoder_input"].to(device)
             encoder_mask = batch["encoder_mask"].to(device)
@@ -52,6 +53,11 @@ def run_validation(
                 term_text: str = term_text.replace("[SOS]", "").split("[EOS]")[0]
 
                 pairs.append((type_text, term_text))
+
+            if print_batch:
+                for type, term in pairs:
+                    logging.debug(f"TYPE: {type} | TERM: {term}")
+                print_batch = False
 
             total += len(batch["type_text"])
             res = check_proof_batch(pairs)
