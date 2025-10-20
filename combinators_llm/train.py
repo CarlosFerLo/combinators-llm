@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 import wandb
 from tqdm import tqdm
 from .build import build_transformer
@@ -67,7 +68,15 @@ def train_model(config):
         tgt_tokenizer.token_to_id("[PAD]"),
     ).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"], eps=1e-9)
+    def lr_lambda(current_step):
+        if current_step < config["warmup_steps"]:
+            return float(current_step) / float(max(1, config["warmup_steps"]))
+        return 1.0
+
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=config["lr"], weight_decay=0.01
+    )
+    scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     initial_epoch = 0
     global_step = 0
@@ -79,6 +88,7 @@ def train_model(config):
         initial_epoch = state["epoch"] + 1
         model.load_state_dict(state["model_state_dict"])
         optimizer.load_state_dict(state["optimizer_state_dict"])
+        scheduler.load_state_dict(state["scheduler"])
         global_step = state["global_step"]
     else:
         logging.info("Initializing weights")
@@ -92,6 +102,7 @@ def train_model(config):
 
     for epoch in range(initial_epoch, config["num_epochs"]):
         model.train()
+        optimizer.zero_grad()
         batch_iterator = tqdm(train_dataloader, desc=f"Processing epoch {epoch:02d}")
         for batch in batch_iterator:
             encoder_input = batch["encoder_input"].to(device)  # (batch, seq_len)
@@ -128,7 +139,7 @@ def train_model(config):
             loss.backward()
 
             optimizer.step()
-            optimizer.zero_grad()
+            scheduler.step()
 
             global_step += 1
 
@@ -139,13 +150,14 @@ def train_model(config):
                 "epoch": epoch,
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
+                "scheduler": scheduler.state_dict(),
                 "global_step": global_step,
             },
             model_filename,
         )
 
         logging.info("Running validation...")
-        run_validation(
+        val_accuracy = run_validation(
             "validation",
             model,
             val_dataloader,
@@ -156,6 +168,12 @@ def train_model(config):
             global_step,
             run,
         )
+
+        if val_accuracy >= config["val_accuracy_early_stop"]:
+            logging.info(
+                "Braking training loop because validation accuracy exceeded baseline."
+            )
+            break
 
     logging.info("Running testing...")
     run_validation(

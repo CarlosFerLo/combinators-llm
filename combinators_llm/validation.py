@@ -19,7 +19,7 @@ def run_validation(
     device,
     global_step,
     run,
-) -> None:
+) -> float:
     model.eval()
     logging.getLogger(__name__)
 
@@ -63,3 +63,5 @@ def run_validation(
 
     run.log({f"{val_name}_acc": results}, global_step)
     logging.info(f"Validation accuracy: {results}")
+
+    return results
