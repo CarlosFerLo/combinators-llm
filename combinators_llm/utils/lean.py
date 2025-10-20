@@ -23,7 +23,7 @@ def check_proof(type: str, term: str) -> bool:
     try:
 
         result = subprocess.run(
-            ["lean", "--json", tmp.name], capture_output=True, text=True
+            ["lean", "--json", tmp.name], capture_output=True, text=True, timeout=60
         )
 
         if result.stdout.strip():
@@ -53,7 +53,7 @@ def check_proof_batch(batch: List[Tuple[str, str]]) -> List[bool]:
     try:
 
         results = subprocess.run(
-            ["lean", "--json", tmp.name], capture_output=True, text=True
+            ["lean", "--json", tmp.name], capture_output=True, text=True, timeout=60
         )
 
         output: List[Dict[str, Union[str, int]]] = []
