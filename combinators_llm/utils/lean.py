@@ -8,6 +8,14 @@ LEAN_HEADER = """
 import Lean
 open Lean Elab Command Meta Term
 
+universe u
+variable {α β γ : Type u}
+def s (f: α → β → γ) (g: α → β) (x: α) : γ := f x (g x)
+def k (x: α) (_: β) : α := x
+
+section CheckSection
+variable (A B C D E F G H I J L M N O P Q R T U V W X Y Z : Type u)
+
 syntax (name := checkStr) "#check_str" str str : command
 
 @[command_elab checkStr]
@@ -28,10 +36,12 @@ def elabCheckStr : CommandElab := fun stx => do
 
     -- Elaborate inside TermElabM
     let ok ← liftTermElabM do
-      let tyExpr   ← elabType tyStx
-      let termExpr ← elabTerm termStx (some tyExpr)
-      let gotTy ← inferType termExpr
-      isDefEq gotTy tyExpr
+      let expectedTy ← elabType tyStx
+      -- Elaborate the term WITHOUT an expected type to get its true inferred type
+      let termExpr ← elabTerm termStx none
+      let actualTy ← inferType termExpr
+      -- Check if the types are definitionally equal
+      isDefEq actualTy expectedTy
 
     if ok then
       logInfo m!"✅ {termStr} : {tyStr}"
@@ -44,11 +54,7 @@ def elabCheckStr : CommandElab := fun stx => do
     logInfo m!"❌ {termStr} : {tyStr} — {← err.toMessageData.toString}"
   pure ()
 
-universe u
-variable {α β γ : Type u}
-def s (f: α → β → γ) (g: α → β) (x: α) : γ := f x (g x)
-def k (x: α) (_: β) : α := x
-variable { A B C D E F G H I J L M N O P Q R T U V W X Y Z : Type u }
+end CheckSection
 """
 
 
@@ -141,3 +147,16 @@ def check_proof_batch(batch: List[Tuple[str, str]]) -> List[bool]:
     assert len(batch) == len(val)
 
     return val
+
+
+if __name__ == "__main__":
+    type = input("Type: ")
+    term = input("Term: ")
+
+    print("Checking...")
+    result = check_proof(type, term)
+
+    if result:
+        print("✅ Success")
+    else:
+        print("❌ Failure")
