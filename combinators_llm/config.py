@@ -21,6 +21,13 @@ def get_config():
         "term_tokenizer_file": "term-tokenizer.json",
         "type_tokenizer_file": "type-tokenizer.json",
         "val_accuracy_early_stop": 0.9,
+        # Beam search parameters
+        "beam_size": 4,
+        "length_penalty": 1.0,
+        "max_num_sequences": 100,
+        "batch_beam_size": 8,
+        # Lean validation parameters
+        "lean_batch_size": 32,
     }
 
 

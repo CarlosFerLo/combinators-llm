@@ -6,18 +6,12 @@ from pathlib import Path
 from datetime import datetime
 import json
 
-from .generators import greedy_decode_batch
+from .generators import greedy_decode_batch, beam_search_decode_batch
 from .utils.lean import check_proof_batch
 from .build import get_model
 from .dataset import get_ds
 from .tokenizers import get_tokenizer
 from .config import get_config
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] [%(threadName)s] %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
 
 
 def run_validation(
@@ -31,14 +25,15 @@ def run_validation(
     global_step=None,
     run=None,
 ) -> float:
+    """Run validation using greedy decoding."""
     model.eval()
-    logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
 
     count = 0
     total = 0
 
     with torch.no_grad():
-        batch_iterator = tqdm(validation_ds, desc=f"Running {val_name}")
+        batch_iterator = tqdm(validation_ds, desc=f"Running {val_name} (greedy)")
         print_batch = True
         for batch in batch_iterator:
             encoder_input = batch["encoder_input"].to(device)
@@ -67,7 +62,7 @@ def run_validation(
 
             if print_batch:
                 for type, term in pairs:
-                    logging.debug(f"TYPE: {type} | TERM: {term}")
+                    logger.debug(f"TYPE: {type} | TERM: {term}")
                 print_batch = False
 
             total += len(batch["type_text"])
@@ -79,9 +74,162 @@ def run_validation(
     results = count / total
 
     if run is not None and global_step is not None:
-        run.log({f"{val_name}_acc": results}, global_step)
+        run.log({f"{val_name}_greedy_acc": results}, global_step)
 
-    logging.info(f"Validation accuracy for {val_name}: {results:.4f}")
+    logger.info(f"Greedy validation accuracy for {val_name}: {results:.4f}")
+
+    return results
+
+
+def run_validation_beam_search(
+    val_name,
+    model,
+    validation_ds,
+    tokenizer_src,
+    tokenizer_tgt,
+    max_len,
+    device,
+    config,
+    global_step=None,
+    run=None,
+) -> float:
+    """Run validation using beam search with batched Lean checking.
+
+    For each input, generates multiple candidate beams. An input is considered
+    correct if at least one of its beams passes Lean validation.
+
+    Args:
+        val_name: Name of the validation set
+        model: The transformer model
+        validation_ds: Validation dataloader
+        tokenizer_src: Source tokenizer
+        tokenizer_tgt: Target tokenizer
+        max_len: Maximum sequence length
+        device: Device to run on
+        config: Configuration dictionary containing beam search parameters
+        global_step: Current training step (for wandb logging)
+        run: Wandb run object (for logging)
+
+    Returns:
+        Accuracy as a float (correct inputs / total inputs)
+    """
+    model.eval()
+    logger = logging.getLogger(__name__)
+
+    count = 0
+    total = 0
+
+    # Extract beam search parameters from config
+    beam_size = config.get("beam_size", 4)
+    length_penalty = config.get("length_penalty", 1.0)
+    max_num_sequences = config.get("max_num_sequences", 100)
+    batch_beam_size = config.get("batch_beam_size", 8)
+    lean_batch_size = config.get("lean_batch_size", 32)
+
+    with torch.no_grad():
+        batch_iterator = tqdm(validation_ds, desc=f"Running {val_name} (beam search)")
+        print_batch = True
+
+        # Accumulate (type, term) pairs across batches for efficient Lean checking
+        accumulated_pairs: List[Tuple[str, str]] = []
+        accumulated_beam_counts: List[int] = []  # Track how many beams per input
+
+        for batch in batch_iterator:
+            encoder_input = batch["encoder_input"].to(device)
+            encoder_mask = batch["encoder_mask"].to(device)
+
+            # beam_search_decode_batch returns List[List[Tuple[tensor, score]]]
+            # Outer list: one entry per input in batch
+            # Inner list: beams for that input
+            batch_beams = beam_search_decode_batch(
+                model,
+                encoder_input,
+                encoder_mask,
+                tokenizer_src,
+                tokenizer_tgt,
+                max_len,
+                device,
+                beam_size=beam_size,
+                length_penalty=length_penalty,
+                max_num_sequences=max_num_sequences,
+                batch_beam_size=batch_beam_size,
+            )
+
+            # Process each input and its beams
+            for i, beams in enumerate(batch_beams):
+                type_text: str = batch["type_text"][i]
+
+                # Decode all beams for this input
+                for beam_seq, score in beams:
+                    term_text = tokenizer_tgt.decode(beam_seq.detach().cpu().numpy())
+                    term_text = term_text.replace("[SOS]", "").split("[EOS]")[0]
+                    accumulated_pairs.append((type_text, term_text))
+
+                # Track how many beams this input has
+                accumulated_beam_counts.append(len(beams))
+
+                if print_batch and i == 0:
+                    # Print first input's beams for debugging
+                    logger.debug(f"TYPE: {type_text}")
+                    for j, (beam_seq, score) in enumerate(beams[:5]):  # Show top 5
+                        term_text = tokenizer_tgt.decode(
+                            beam_seq.detach().cpu().numpy()
+                        )
+                        term_text = term_text.replace("[SOS]", "").split("[EOS]")[0]
+                        logger.debug(f"  Beam {j+1} (score={score:.4f}): {term_text}")
+                    print_batch = False
+
+            # Check accumulated pairs in batches with Lean
+            if len(accumulated_pairs) >= lean_batch_size:
+                # Process a batch of Lean checks
+                lean_results = check_proof_batch(accumulated_pairs[:lean_batch_size])
+
+                # Determine which inputs are correct (at least one beam validated)
+                # Only count complete inputs where we've checked all their beams
+                beam_idx = 0
+                inputs_processed = 0
+
+                for num_beams in accumulated_beam_counts:
+                    # Only process this input if all its beams are in the lean_results
+                    if beam_idx + num_beams <= len(lean_results):
+                        input_beams_valid = lean_results[
+                            beam_idx : beam_idx + num_beams
+                        ]
+                        if any(input_beams_valid):
+                            count += 1
+                        total += 1
+                        beam_idx += num_beams
+                        inputs_processed += 1
+                    else:
+                        # This input's beams span beyond current lean_results, stop here
+                        break
+
+                # Keep remaining pairs and counts that weren't fully checked yet
+                accumulated_pairs = accumulated_pairs[beam_idx:]
+                accumulated_beam_counts = accumulated_beam_counts[inputs_processed:]
+
+            batch_iterator.set_postfix(
+                {"acc": f"{count / total if total > 0 else 0 :6.3f}"}
+            )
+
+        # Process any remaining pairs
+        if accumulated_pairs:
+            lean_results = check_proof_batch(accumulated_pairs)
+
+            beam_idx = 0
+            for num_beams in accumulated_beam_counts:
+                input_beams_valid = lean_results[beam_idx : beam_idx + num_beams]
+                if any(input_beams_valid):
+                    count += 1
+                total += 1
+                beam_idx += num_beams
+
+    results = count / total if total > 0 else 0.0
+
+    if run is not None and global_step is not None:
+        run.log({f"{val_name}_beam_acc": results}, global_step)
+
+    logger.info(f"Beam search validation accuracy for {val_name}: {results:.4f}")
 
     return results
 
@@ -92,7 +240,10 @@ def save_validation_results(
     """Save validation results to a JSON file with individual timestamps per partition.
 
     Only updates the partitions that were tested, preserving existing data for others.
+    Supports both greedy and beam search accuracy metrics.
     """
+
+    logger = logging.getLogger(__name__)
     output_path = Path(output_file)
     current_time = datetime.now().isoformat()
 
@@ -116,7 +267,8 @@ def save_validation_results(
     # Update only the tested partitions with new results and timestamps
     for partition, result in results.items():
         existing_data[partition] = {
-            "accuracy": result["accuracy"],
+            "greedy_accuracy": result.get("greedy_accuracy"),
+            "beam_accuracy": result.get("beam_accuracy"),
             "total_batches": result["total_batches"],
             "last_validated": current_time,
         }
@@ -125,16 +277,22 @@ def save_validation_results(
     with open(output_path, "w") as f:
         json.dump(existing_data, f, indent=2)
 
-    logging.info(f"Results saved to {output_file}")
+    logger.info(f"Results saved to {output_file}")
 
     # Print what was updated
     for partition in results.keys():
-        logging.info(
+        logger.info(
             f"Updated {partition} validation results (timestamp: {current_time})"
         )
 
 
 def main():
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     logging.info("Loading model config...")
     config = get_config()
     logging.info(f"Model Config:\n{config}")
@@ -154,22 +312,51 @@ def main():
     print("4. All")
     print("=" * 50)
 
-    choice = input("\nEnter your choice (1-4): ").strip()
+    partition_choice = input("\nEnter your choice (1-4): ").strip()
 
     partitions_to_run = []
-    if choice == "1":
+    if partition_choice == "1":
         partitions_to_run = ["train"]
-    elif choice == "2":
+    elif partition_choice == "2":
         partitions_to_run = ["validation"]
-    elif choice == "3":
+    elif partition_choice == "3":
         partitions_to_run = ["test"]
-    elif choice == "4":
+    elif partition_choice == "4":
         partitions_to_run = ["train", "validation", "test"]
     else:
         logging.error("Invalid choice. Exiting.")
         return
 
+    # Ask user which validation method(s) to use
+    print("\n" + "=" * 50)
+    print("Select validation method(s):")
+    print("1. Greedy")
+    print("2. Beam Search")
+    print("3. Both")
+    print("=" * 50)
+
+    method_choice = input("\nEnter your choice (1-3): ").strip()
+
+    run_greedy = False
+    run_beam = False
+    if method_choice == "1":
+        run_greedy = True
+    elif method_choice == "2":
+        run_beam = True
+    elif method_choice == "3":
+        run_greedy = True
+        run_beam = True
+    else:
+        logging.error("Invalid choice. Exiting.")
+        return
+
     logging.info(f"Running validation on: {', '.join(partitions_to_run)}")
+    methods = []
+    if run_greedy:
+        methods.append("greedy")
+    if run_beam:
+        methods.append("beam search")
+    logging.info(f"Using methods: {', '.join(methods)}")
 
     # Load data
     logging.info("Loading datasets...")
@@ -214,20 +401,41 @@ def main():
         logging.info(f"{'='*50}")
 
         dataloader = dataloader_map[partition]
-        accuracy = run_validation(
-            partition,
-            model,
-            dataloader,
-            src_tokenizer,
-            tgt_tokenizer,
-            config["seq_len"],
-            device,
-        )
 
-        results[partition] = {
-            "accuracy": accuracy,
+        partition_results = {
             "total_batches": len(dataloader),
         }
+
+        # Run greedy validation if selected
+        if run_greedy:
+            logging.info(f"Running greedy validation for {partition}...")
+            greedy_accuracy = run_validation(
+                partition,
+                model,
+                dataloader,
+                src_tokenizer,
+                tgt_tokenizer,
+                config["seq_len"],
+                device,
+            )
+            partition_results["greedy_accuracy"] = greedy_accuracy
+
+        # Run beam search validation if selected
+        if run_beam:
+            logging.info(f"Running beam search validation for {partition}...")
+            beam_accuracy = run_validation_beam_search(
+                partition,
+                model,
+                dataloader,
+                src_tokenizer,
+                tgt_tokenizer,
+                config["seq_len"],
+                device,
+                config,
+            )
+            partition_results["beam_accuracy"] = beam_accuracy
+
+        results[partition] = partition_results
 
     # Save results
     save_validation_results(results)
@@ -241,16 +449,20 @@ def main():
         all_results = {}
 
     # Print summary with timestamps
-    print("\n" + "=" * 70)
+    print("\n" + "=" * 85)
     print("VALIDATION RESULTS SUMMARY")
-    print("=" * 70)
-    print(f"{'Partition':<15} {'Accuracy':<12} {'Last Validated':<30}")
-    print("-" * 70)
+    print("=" * 85)
+    print(
+        f"{'Partition':<15} {'Greedy Acc':<15} {'Beam Acc':<15} {'Last Validated':<30}"
+    )
+    print("-" * 85)
 
     for partition in ["train", "validation", "test"]:
         if partition in all_results and all_results[partition] is not None:
-            acc = all_results[partition]["accuracy"]
+            greedy_acc = all_results[partition].get("greedy_accuracy")
+            beam_acc = all_results[partition].get("beam_accuracy")
             timestamp = all_results[partition]["last_validated"]
+
             # Format timestamp for better readability
             try:
                 dt = datetime.fromisoformat(timestamp)
@@ -258,18 +470,24 @@ def main():
             except:
                 formatted_time = timestamp
 
+            # Format accuracies
+            greedy_str = f"{greedy_acc:.4f}" if greedy_acc is not None else "N/A"
+            beam_str = f"{beam_acc:.4f}" if beam_acc is not None else "N/A"
+
             # Mark newly tested partitions
             marker = " *" if partition in results else ""
             print(
-                f"{partition.capitalize():<15} {acc:<12.4f} {formatted_time:<30}{marker}"
+                f"{partition.capitalize():<15} {greedy_str:<15} {beam_str:<15} {formatted_time:<30}{marker}"
             )
         else:
-            print(f"{partition.capitalize():<15} {'N/A':<12} {'Not tested yet':<30}")
+            print(
+                f"{partition.capitalize():<15} {'N/A':<15} {'N/A':<15} {'Not tested yet':<30}"
+            )
 
-    print("-" * 70)
+    print("-" * 85)
     if results:
         print("* = Updated in this run")
-    print("=" * 70 + "\n")
+    print("=" * 85 + "\n")
 
 
 if __name__ == "__main__":
