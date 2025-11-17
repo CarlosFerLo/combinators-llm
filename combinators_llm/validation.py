@@ -124,15 +124,10 @@ def run_validation_beam_search(
     length_penalty = config.get("length_penalty", 1.0)
     max_num_sequences = config.get("max_num_sequences", 100)
     batch_beam_size = config.get("batch_beam_size", 8)
-    lean_batch_size = config.get("lean_batch_size", 32)
 
     with torch.no_grad():
         batch_iterator = tqdm(validation_ds, desc=f"Running {val_name} (beam search)")
         print_batch = True
-
-        # Accumulate (type, term) pairs across batches for efficient Lean checking
-        accumulated_pairs: List[Tuple[str, str]] = []
-        accumulated_beam_counts: List[int] = []  # Track how many beams per input
 
         for batch in batch_iterator:
             encoder_input = batch["encoder_input"].to(device)
@@ -158,15 +153,13 @@ def run_validation_beam_search(
             # Process each input and its beams
             for i, beams in enumerate(batch_beams):
                 type_text: str = batch["type_text"][i]
+                pairs: List[Tuple[str, str]] = []
 
                 # Decode all beams for this input
                 for beam_seq, score in beams:
                     term_text = tokenizer_tgt.decode(beam_seq.detach().cpu().numpy())
                     term_text = term_text.replace("[SOS]", "").split("[EOS]")[0]
-                    accumulated_pairs.append((type_text, term_text))
-
-                # Track how many beams this input has
-                accumulated_beam_counts.append(len(beams))
+                    pairs.append((type_text, term_text))
 
                 if print_batch and i == 0:
                     # Print first input's beams for debugging
@@ -179,50 +172,15 @@ def run_validation_beam_search(
                         logger.debug(f"  Beam {j+1} (score={score:.4f}): {term_text}")
                     print_batch = False
 
-            # Check accumulated pairs in batches with Lean
-            if len(accumulated_pairs) >= lean_batch_size:
-                # Process a batch of Lean checks
-                lean_results = check_proof_batch(accumulated_pairs[:lean_batch_size])
+                # Validate terms of this input
+                res = check_proof_batch(pairs)
 
-                # Determine which inputs are correct (at least one beam validated)
-                # Only count complete inputs where we've checked all their beams
-                beam_idx = 0
-                inputs_processed = 0
-
-                for num_beams in accumulated_beam_counts:
-                    # Only process this input if all its beams are in the lean_results
-                    if beam_idx + num_beams <= len(lean_results):
-                        input_beams_valid = lean_results[
-                            beam_idx : beam_idx + num_beams
-                        ]
-                        if any(input_beams_valid):
-                            count += 1
-                        total += 1
-                        beam_idx += num_beams
-                        inputs_processed += 1
-                    else:
-                        # This input's beams span beyond current lean_results, stop here
-                        break
-
-                # Keep remaining pairs and counts that weren't fully checked yet
-                accumulated_pairs = accumulated_pairs[beam_idx:]
-                accumulated_beam_counts = accumulated_beam_counts[inputs_processed:]
+                count += any(res)
+                total += 1
 
             batch_iterator.set_postfix(
                 {"acc": f"{count / total if total > 0 else 0 :6.3f}"}
             )
-
-        # Process any remaining pairs
-        if accumulated_pairs:
-            lean_results = check_proof_batch(accumulated_pairs)
-
-            beam_idx = 0
-            for num_beams in accumulated_beam_counts:
-                input_beams_valid = lean_results[beam_idx : beam_idx + num_beams]
-                if any(input_beams_valid):
-                    count += 1
-                total += 1
-                beam_idx += num_beams
 
     results = count / total if total > 0 else 0.0
 

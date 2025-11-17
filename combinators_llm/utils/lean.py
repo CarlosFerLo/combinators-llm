@@ -116,11 +116,13 @@ def check_proof(type: str, term: str, timeout: int = 60) -> bool:
             timeout=timeout,
         )
 
+        output = result.stdout + "\n" + result.stderr
+
         if result.returncode != 0:
             logger.warning(f"Lean exited with non-zero code: {result.returncode}")
-
-        output = result.stdout + "\n" + result.stderr
-        logger.debug(f"Lean output:\n{output}")
+            logger.warning(f"Lean output:\n{output}")
+        else:
+            logger.debug(f"Lean output:\n{output}")
 
         # Parse JSON output line by line
         for line in output.splitlines():
