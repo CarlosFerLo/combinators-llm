@@ -1,12 +1,16 @@
 import torch
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Optional
 from tokenizers import Tokenizer
+from logging import getLogger
 
 from .modules import Transformer
 from .build import get_model
 from .config import get_config
 from .tokenizers import get_tokenizer
 from .generators.greedy import greedy_decode, greedy_decode_batch
+from .generators.beam_search import beam_search_decode
+
+logger = getLogger(__name__)
 
 
 class CombinatorsLlm:
@@ -115,6 +119,36 @@ class CombinatorsLlm:
 
         decoded = self.term_tokenizer.decode_batch(tokens.tolist())
         return [d.replace("[SOS]", "").replace("[EOS]", "") for d in decoded]
+
+    def beam_generate(
+        self, type: str, beam_size: int = 5, max_num_sequences: Optional[int] = None
+    ) -> List[str]:
+        source, source_mask = self._preprocess_string(type)
+
+        beams = beam_search_decode(
+            self.transformer,
+            source,
+            source_mask,
+            self.type_tokenizer,
+            self.term_tokenizer,
+            self.config["seq_len"],
+            self.device,
+            beam_size=beam_size,
+            max_num_sequences=max_num_sequences,
+        )
+
+        results = []
+        for sequence, score in beams:
+            decoded = (
+                self.term_tokenizer.decode(sequence.squeeze(0).tolist())
+                .replace("[SOS]", "")
+                .replace("[EOS]", "")
+            )
+            results.append(decoded)
+
+            logger.debug(f"Beam score: {score:.4f} | TERM: {decoded}")
+
+        return results
 
     def __call__(self, input: Union[str, List[str]]) -> Union[str, List[str]]:
         if isinstance(input, list):
