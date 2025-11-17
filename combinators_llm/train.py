@@ -3,6 +3,7 @@ import torch.nn as nn
 import wandb
 from tqdm import tqdm
 from .build import get_model
+from .utils.prompt_stop import prompt_stop
 from .dataset import get_ds
 import logging
 from pathlib import Path
