@@ -1,4 +1,5 @@
 import torch
+import random
 from torch.utils.data import Dataset, DataLoader
 from datasets import load_dataset
 from tokenizers import Tokenizer
@@ -38,6 +39,32 @@ class CombinatorsDataset(Dataset):
                 return True
 
             dataset = dataset.filter(filter_unique)
+
+        # Apply augmentation to create new elements
+
+        def variable_name_randomizer(examples):
+            augmented_types = []
+            augmented_terms = []
+
+            for type_text, term_text in zip(examples["type"], examples["term"]):
+                for _ in range(5):
+                    variable_map = list(range(26))
+                    random.shuffle(variable_map)
+                    var_dict = {
+                        chr(ord("A") + i): chr(ord("A") + variable_map[i])
+                        for i in range(26)
+                    }
+                    augmented_type = type_text.translate(str.maketrans(var_dict))
+                    augmented_types.append(augmented_type)
+                    augmented_terms.append(term_text)
+
+            return {"type": augmented_types, "term": augmented_terms}
+
+        dataset = dataset.map(
+            variable_name_randomizer,
+            batched=True,
+            remove_columns=dataset.column_names,  # type: ignore
+        )
 
         self.ds = dataset.shuffle()
 
