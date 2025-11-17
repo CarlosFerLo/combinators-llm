@@ -21,4 +21,5 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 train = "combinators_llm.train:main"
+validate = "combinators_llm.validation:main"
 demo = "demo:main"

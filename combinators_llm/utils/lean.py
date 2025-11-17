@@ -3,6 +3,9 @@ import subprocess
 import json
 from typing import Tuple, List
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 LEAN_HEADER = """
 import Lean
@@ -13,8 +16,31 @@ variable {α β γ : Type u}
 def s (f: α → β → γ) (g: α → β) (x: α) : γ := f x (g x)
 def k (x: α) (_: β) : α := x
 
-section CheckSection
-variable (A B C D E F G H I J L M N O P Q R T U V W X Y Z : Type u)
+-- Declare type variables as axioms so they're in scope everywhere
+axiom A : Type u
+axiom B : Type u
+axiom C : Type u
+axiom D : Type u
+axiom E : Type u
+axiom F : Type u
+axiom G : Type u
+axiom H : Type u
+axiom I : Type u
+axiom J : Type u
+axiom L : Type u
+axiom M : Type u
+axiom N : Type u
+axiom O : Type u
+axiom P : Type u
+axiom Q : Type u
+axiom R : Type u
+axiom T : Type u
+axiom U : Type u
+axiom V : Type u
+axiom W : Type u
+axiom X : Type u
+axiom Y : Type u
+axiom Z : Type u
 
 syntax (name := checkStr) "#check_str" str str : command
 
@@ -54,7 +80,6 @@ def elabCheckStr : CommandElab := fun stx => do
     logInfo m!"❌ {termStr} : {tyStr} — {← err.toMessageData.toString}"
   pure ()
 
-end CheckSection
 """
 
 
@@ -75,6 +100,9 @@ def check_proof(type: str, term: str) -> bool:
         )
 
         output = result.stdout + "\n" + result.stderr
+
+        logger.debug(f"Lean output:\n{output}")
+
         for line in output.splitlines():
 
             line = line.strip()
@@ -119,6 +147,8 @@ def check_proof_batch(batch: List[Tuple[str, str]]) -> List[bool]:
 
         output = results.stdout + "\n" + results.stderr
 
+        logger.debug(f"Lean output:\n{output}")
+
         val: List[bool] = []
         for line in output.splitlines():
 
@@ -150,13 +180,19 @@ def check_proof_batch(batch: List[Tuple[str, str]]) -> List[bool]:
 
 
 if __name__ == "__main__":
-    type = input("Type: ")
-    term = input("Term: ")
+    logging.basicConfig(level=logging.DEBUG)
+    batch = [
+        ("A -> A", "s k k"),  # True
+        ("A -> B -> A", "k"),  # True
+        ("A -> B", "k"),  # False
+        ("A -> B", "s ( k ( k k ) ) k ( s k ( k k ) ) k "),  # False
+        ("A -> A -> A", "k k"),  # False
+    ]
 
     print("Checking...")
-    result = check_proof(type, term)
+    result = check_proof_batch(batch)
 
-    if result:
-        print("✅ Success")
-    else:
-        print("❌ Failure")
+    print("Results:")
+    for pair, res in zip(batch, result):
+        print(f"Type: {pair[0]}, Term: {pair[1]} => Valid: {res}")
+    print("Done.")

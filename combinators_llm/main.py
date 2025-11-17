@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Union
 from tokenizers import Tokenizer
 
 from .modules import Transformer
-from .build import build_transformer
+from .build import get_model
 from .config import get_config
 from .tokenizers import get_tokenizer
 from .generators.greedy import greedy_decode, greedy_decode_batch
@@ -26,19 +26,13 @@ class CombinatorsLlm:
         self.term_tokenizer = get_tokenizer("term")
         self.type_tokenizer = get_tokenizer("type")
 
-        self.transformer = build_transformer(
+        self.transformer = get_model(
+            self.config,
             self.type_tokenizer.get_vocab_size(),
             self.term_tokenizer.get_vocab_size(),
-            self.config["seq_len"],
-            self.config["seq_len"],
             self.type_tokenizer.token_to_id("[PAD]"),
             self.term_tokenizer.token_to_id("[PAD]"),
-            self.config["d_model"],
-            self.config["N"],
-            self.config["h"],
-            self.config["d_ff"],
-            self.config["dropout"],
-        )
+        ).to(self.device)
 
         weights = torch.load(
             "./combinators_llm/combinators-llm.bin", map_location=self.device

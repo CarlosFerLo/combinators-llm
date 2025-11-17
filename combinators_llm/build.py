@@ -62,3 +62,20 @@ def build_transformer(
     )
 
     return transformer
+
+
+def get_model(config, vocab_src_len, vocab_tgt_len, src_pad_idx, tgt_pad_idx):
+    model = build_transformer(
+        vocab_src_len,
+        vocab_tgt_len,
+        config["seq_len"],
+        config["seq_len"],
+        src_pad_idx,
+        tgt_pad_idx,
+        config["d_model"],
+        config["N"],
+        config["h"],
+        config["d_ff"],
+        config["dropout"],
+    )
+    return model
