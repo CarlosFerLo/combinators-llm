@@ -5,7 +5,7 @@ def get_config():
     return {
         "train_batch_size": 32,
         "val_batch_size": 32,
-        "test_batch_size": 32,
+        "test_batch_size": 64,
         "num_epochs": 50,
         "lr": 1e-4,
         "dropout": 0.1,
@@ -21,6 +21,7 @@ def get_config():
         "term_tokenizer_file": "term-tokenizer.json",
         "type_tokenizer_file": "type-tokenizer.json",
         "val_accuracy_early_stop": 0.9,
+        "prompt_stop": True,
         # Beam search parameters
         "beam_size": 4,
         "length_penalty": 1.0,

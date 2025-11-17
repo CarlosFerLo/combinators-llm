@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import wandb
 from tqdm import tqdm
-from .build import build_transformer
+from .build import get_model
 from .dataset import get_ds
 import logging
 from pathlib import Path
@@ -22,23 +22,6 @@ logging.basicConfig(
     filename="train.log",
     filemode="a",
 )
-
-
-def get_model(config, vocab_src_len, vocab_tgt_len, src_pad_idx, tgt_pad_idx):
-    model = build_transformer(
-        vocab_src_len,
-        vocab_tgt_len,
-        config["seq_len"],
-        config["seq_len"],
-        src_pad_idx,
-        tgt_pad_idx,
-        config["d_model"],
-        config["N"],
-        config["h"],
-        config["d_ff"],
-        config["dropout"],
-    )
-    return model
 
 
 def train_model(config):
@@ -175,7 +158,7 @@ def train_model(config):
             run,
         )
 
-        greedy_val_accuracy = run_validation(
+        val_accuracy = run_validation(
             "validation",
             model,
             val_dataloader,
@@ -187,38 +170,15 @@ def train_model(config):
             run,
         )
 
-        # Run beam search validation
-        run_validation_beam_search(
-            "train",
-            model,
-            train_sample_batches,
-            src_tokenizer,
-            tgt_tokenizer,
-            config["seq_len"],
-            device,
-            config,
-            global_step,
-            run,
-        )
-
-        beam_val_accuracy = run_validation_beam_search(
-            "validation",
-            model,
-            val_dataloader,
-            src_tokenizer,
-            tgt_tokenizer,
-            config["seq_len"],
-            device,
-            config,
-            global_step,
-            run,
-        )
-
-        # Use beam search accuracy for early stopping (typically better)
-        if beam_val_accuracy >= config["val_accuracy_early_stop"]:
+        # Use greedy accuracy for early stopping (typically better)
+        if val_accuracy >= config["val_accuracy_early_stop"]:
             logging.info(
-                "Breaking training loop because beam search validation accuracy exceeded baseline."
+                "Breaking training loop because greedy validation accuracy exceeded baseline."
             )
+            break
+
+        if config.get("prompt_stop") and prompt_stop():
+            logging.info("User requested to stop training.")
             break
 
     logging.info("Running testing...")
@@ -231,19 +191,6 @@ def train_model(config):
         tgt_tokenizer,
         config["seq_len"],
         device,
-        global_step,
-        run,
-    )
-
-    run_validation_beam_search(
-        "test",
-        model,
-        test_dataloader,
-        src_tokenizer,
-        tgt_tokenizer,
-        config["seq_len"],
-        device,
-        config,
         global_step,
         run,
     )
