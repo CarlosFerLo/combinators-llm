@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import wandb
 from tqdm import tqdm
 from .build import build_transformer
