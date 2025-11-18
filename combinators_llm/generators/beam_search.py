@@ -60,7 +60,7 @@ def beam_search_decode(
         # Expand each active beam
         for beam_seq, beam_score in active_beams:
             # Build the mask for the target (decoder input)
-            decoder_mask = causal_mask(beam_seq.size(1)).type_as(source_mask).to(device)
+            decoder_mask = causal_mask(beam_seq.size(1), device=device).type_as(source_mask)
 
             # Calculate the output of the decoder
             out = model.decode(encoder_output, source_mask, beam_seq, decoder_mask)
@@ -305,7 +305,7 @@ def _beam_search_with_batching(
             current_batch_size = batched_seqs.size(0)
 
             # Create decoder mask for batched sequences
-            decoder_mask = causal_mask(max_seq_len).type_as(source_mask).to(device)
+            decoder_mask = causal_mask(max_seq_len, device=device).type_as(source_mask)
             decoder_mask = decoder_mask.unsqueeze(0).expand(
                 current_batch_size, -1, -1, -1
             )
