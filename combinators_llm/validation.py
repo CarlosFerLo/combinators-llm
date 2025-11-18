@@ -376,7 +376,7 @@ def main():
                 config["seq_len"],
                 device,
             )
-            partition_results["greedy_accuracy"] = greedy_accuracy
+            partition_results["greedy_accuracy"] = greedy_accuracy  # type: ignore
 
         # Run beam search validation if selected
         if run_beam:
@@ -391,7 +391,7 @@ def main():
                 device,
                 config,
             )
-            partition_results["beam_accuracy"] = beam_accuracy
+            partition_results["beam_accuracy"] = beam_accuracy  # type: ignore
 
         results[partition] = partition_results
 

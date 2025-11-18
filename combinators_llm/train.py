@@ -3,7 +3,6 @@ import torch.nn as nn
 import wandb
 from tqdm import tqdm
 from .build import get_model
-from .utils.prompt_stop import prompt_stop
 from .dataset import get_ds
 import logging
 from pathlib import Path
@@ -176,10 +175,6 @@ def train_model(config):
             logging.info(
                 "Breaking training loop because greedy validation accuracy exceeded baseline."
             )
-            break
-
-        if config.get("prompt_stop") and prompt_stop():
-            logging.info("User requested to stop training.")
             break
 
     logging.info("Running testing...")

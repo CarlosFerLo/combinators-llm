@@ -6,7 +6,7 @@ def get_config():
         "train_batch_size": 32,
         "val_batch_size": 32,
         "test_batch_size": 64,
-        "num_epochs": 50,
+        "num_epochs": 5,
         "lr": 1e-4,
         "dropout": 0.1,
         "weight_decay": 0.01,
@@ -20,14 +20,7 @@ def get_config():
         "preload": None,
         "term_tokenizer_file": "term-tokenizer.json",
         "type_tokenizer_file": "type-tokenizer.json",
-        "val_accuracy_early_stop": 0.9,
-        "prompt_stop": True,
-        # Beam search parameters
-        "beam_size": 4,
-        "length_penalty": 1.0,
-        "max_num_sequences": 100,
-        "batch_beam_size": 8,
-        # Lean validation parameters
+        "val_accuracy_early_stop": 0.1,
         "lean_batch_size": 32,
     }
 
