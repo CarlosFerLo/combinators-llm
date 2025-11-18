@@ -46,13 +46,19 @@ class CombinatorsLlm:
     def _preprocess_string(self, src_text: str):
 
         sos_idx = torch.tensor(
-            [self.type_tokenizer.token_to_id("[SOS]")], dtype=torch.int64
+            [self.type_tokenizer.token_to_id("[SOS]")],
+            dtype=torch.int64,
+            device=self.device,
         )
         eos_idx = torch.tensor(
-            [self.type_tokenizer.token_to_id("[EOS]")], dtype=torch.int64
+            [self.type_tokenizer.token_to_id("[EOS]")],
+            dtype=torch.int64,
+            device=self.device,
         )
         pad_idx = torch.tensor(
-            [self.type_tokenizer.token_to_id("[PAD]")], dtype=torch.int64
+            [self.type_tokenizer.token_to_id("[PAD]")],
+            dtype=torch.int64,
+            device=self.device,
         )
 
         # Prepare the encoder input
@@ -62,18 +68,18 @@ class CombinatorsLlm:
         if enc_num_padding_tokens < 0:
             raise ValueError("Sentence is too long")
 
-        encoder_input = (
-            torch.cat(
-                [
-                    sos_idx,
-                    torch.tensor(enc_input_tokens, dtype=torch.int64),
-                    eos_idx,
-                    torch.tensor([pad_idx] * enc_num_padding_tokens, dtype=torch.int64),
-                ]
-            )
-            .unsqueeze(0)
-            .to(self.device)
-        )
+        encoder_input = torch.cat(
+            [
+                sos_idx,
+                torch.tensor(enc_input_tokens, dtype=torch.int64, device=self.device),
+                eos_idx,
+                torch.tensor(
+                    [pad_idx] * enc_num_padding_tokens,
+                    dtype=torch.int64,
+                    device=self.device,
+                ),
+            ]
+        ).unsqueeze(0)
 
         encoder_mask = (
             (encoder_input != pad_idx).unsqueeze(1).unsqueeze(1).int().to(self.device)

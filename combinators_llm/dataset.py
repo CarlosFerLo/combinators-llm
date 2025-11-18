@@ -126,7 +126,7 @@ class CombinatorsDataset(Dataset):
             .unsqueeze(0)
             .int()
             & causal_mask(
-                decoder_input.size(0)
+                decoder_input.size(0),
             ),  # (1, 1, seq_len) & (1, seq_len, seq_len)
             "label": label,
             "type_text": type_text,
